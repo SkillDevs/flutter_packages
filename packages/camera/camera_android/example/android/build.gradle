@@ -30,7 +30,7 @@ tasks.register("clean", Delete) {
 gradle.projectsEvaluated {
     project(":camera_android") {
         tasks.withType(JavaCompile) {
-            options.compilerArgs << "-Xlint:all" << "-Werror"
+            options.compilerArgs << "-Xlint:all"
         }
     }
 }

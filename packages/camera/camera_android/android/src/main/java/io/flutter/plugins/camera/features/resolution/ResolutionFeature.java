@@ -29,6 +29,7 @@ import java.util.List;
 public class ResolutionFeature extends CameraFeature<ResolutionPreset> {
   @Nullable private Size captureSize;
   @Nullable private Size previewSize;
+  @Nullable private Size streamSize;
   private CamcorderProfile recordingProfileLegacy;
   private EncoderProfiles recordingProfile;
   @NonNull private ResolutionPreset currentSetting;
@@ -80,6 +81,11 @@ public class ResolutionFeature extends CameraFeature<ResolutionPreset> {
   @Nullable
   public Size getPreviewSize() {
     return this.previewSize;
+  }
+
+  @Nullable
+  public Size getStreamSize() {
+    return this.streamSize;
   }
 
   /**
@@ -293,5 +299,7 @@ public class ResolutionFeature extends CameraFeature<ResolutionPreset> {
     }
 
     previewSize = computeBestPreviewSize(cameraId, resolutionPreset);
+
+    streamSize = computeBestPreviewSize(cameraId, ResolutionPreset.medium);
   }
 }

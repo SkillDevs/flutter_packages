@@ -33,6 +33,10 @@ public final class CameraPlugin implements FlutterPlugin, ActivityAware {
    */
   public CameraPlugin() {}
 
+  static {
+    System.loadLibrary("camera_android");
+  }
+
   @Override
   public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
     this.flutterPluginBinding = binding;

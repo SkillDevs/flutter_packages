@@ -19,6 +19,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import io.github.crow_misia.libyuv.*;
+import io.github.crow_misia.libyuv.ext.ImageExt;
+
 
 // Wraps an ImageReader to allow for testing of the image handler.
 public class ImageStreamReader {
@@ -102,7 +105,7 @@ public class ImageStreamReader {
       if (dartImageFormat == ImageFormat.NV21) {
         imageBuffer.put("planes", parsePlanesForNv21(image));
       } else {
-        imageBuffer.put("planes", parsePlanesForYuvOrJpeg(image));
+        imageBuffer.put("planes", parsePlanesForGenericYUVAndConvertToBGRA(image));
       }
 
       imageBuffer.put("width", image.getWidth());
@@ -184,6 +187,72 @@ public class ImageStreamReader {
     return planes;
   }
 
+  // ArgbBuffer it's BGRA in memory
+  ArgbBuffer argbBuffer;
+
+  @NonNull
+  public List<Map<String, Object>> parsePlanesForGenericYUVAndConvertToBGRA(@NonNull Image image) {
+    int imgW = image.getWidth();
+    int imgH = image.getHeight();
+
+    final Image.Plane[] imgPlanes = image.getPlanes();
+
+    final Image.Plane yPlane = imgPlanes[0];
+    final Image.Plane uPlane = imgPlanes[1];
+    final Image.Plane vPlane = imgPlanes[2];
+    final int uPixelStride = uPlane.getPixelStride();
+
+    if (argbBuffer == null) {
+      argbBuffer = ArgbBuffer.Factory.allocate(imgW, imgH);
+    }
+
+    // https://github.com/crow-misia/libyuv-android/issues/7#issuecomment-1167753887
+    /*
+      Android I420_888 is returned in the format I420, NV12, or NV21, depending on Android device model.
+
+      If pixelStride of 2nd Plane is 1, it is I420.
+      If buffer address of 2nd and 3rd planes are
+      NV12 if 2nd < 3rd.
+      NV21 if 2nd > 3rd.
+     */
+    if (uPixelStride == 1) {
+      // I420
+      I420Buffer imgBuf = ImageExt.toI420Buffer(image);
+      imgBuf.convertTo(argbBuffer);
+      imgBuf.close();
+
+    } else {
+      final long uAddr = getNativeAddress(uPlane.getBuffer());
+      final long vAddr = getNativeAddress(vPlane.getBuffer());
+      if (uAddr < vAddr) {
+        // NV12
+        Nv12Buffer imgBuf = ImageExt.toNv12Buffer(image);
+        imgBuf.convertTo(argbBuffer);
+        imgBuf.close();
+
+      } else {
+        // NV21
+        Nv21Buffer imgBuf = ImageExt.toNv21Buffer(image);
+        imgBuf.convertTo(argbBuffer);
+        imgBuf.close();
+      }
+    }
+
+    // Prepare the Dart response by copying the bytes from the argb buffer
+    List<Map<String, Object>> planes = new ArrayList<>();
+
+    ByteBuffer buffer = argbBuffer.asBuffer();
+    byte[] bytes = new byte[buffer.remaining()];
+    buffer.get(bytes, 0, bytes.length);
+
+    Map<String, Object> planeBuffer = new HashMap<>();
+    planeBuffer.put("bytesPerRow", image.getWidth());
+    planeBuffer.put("bytesPerPixel", 4);
+    planeBuffer.put("bytes", bytes);
+    planes.add(planeBuffer);
+    return planes;
+  }
+
   /** Returns the image reader surface. */
   @NonNull
   public Surface getSurface() {
@@ -224,5 +293,10 @@ public class ImageStreamReader {
   /** Closes the image reader. */
   public void close() {
     imageReader.close();
+    if (argbBuffer != null) {
+      argbBuffer.close();
+    }
   }
+
+  public native long getNativeAddress(ByteBuffer buffer);
 }

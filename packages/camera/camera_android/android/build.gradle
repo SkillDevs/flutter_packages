@@ -36,6 +36,10 @@ buildFeatures {
     defaultConfig {
         minSdkVersion 21
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        ndk {
+            moduleName "camera_android"  // Specify the module name
+        }
     }
     lintOptions {
         checkAllWarnings true
@@ -63,10 +67,17 @@ buildFeatures {
             }
         }
     }
+    externalNativeBuild {
+        cmake {
+            path file('src/main/cpp/CMakeLists.txt')
+            version '3.22.1'
+        }
+    }
 }
 
 dependencies {
     implementation 'androidx.annotation:annotation:1.9.1'
+    implementation "io.github.crow-misia.libyuv:libyuv-android:0.41.0"
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.mockito:mockito-inline:5.0.0'
     testImplementation 'androidx.test:core:1.4.0'

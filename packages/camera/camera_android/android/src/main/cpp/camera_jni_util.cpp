@@ -8,7 +8,7 @@
 
 extern "C"
 JNIEXPORT jlong JNICALL
-Java_io_flutter_plugins_camera_media_ImageStreamReader_getNativeAddress(JNIEnv *env, jobject thiz,
+Java_io_flutter_plugins_camera_CameraPlugin_getNativeAddress(JNIEnv *env, jclass clazz,
                                                                         jobject byteBuffer) {
     // Get the address of the native buffer associated with the ByteBuffer
     void* address = env->GetDirectBufferAddress(byteBuffer);

@@ -13,6 +13,7 @@ import android.view.Surface;
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 import io.flutter.plugin.common.EventChannel;
+import io.flutter.plugins.camera.CameraPlugin;
 import io.flutter.plugins.camera.types.CameraCaptureProperties;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -222,8 +223,8 @@ public class ImageStreamReader {
       imgBuf.close();
 
     } else {
-      final long uAddr = getNativeAddress(uPlane.getBuffer());
-      final long vAddr = getNativeAddress(vPlane.getBuffer());
+      final long uAddr = CameraPlugin.getNativeAddress(uPlane.getBuffer());
+      final long vAddr = CameraPlugin.getNativeAddress(vPlane.getBuffer());
       if (uAddr < vAddr) {
         // NV12
         Nv12Buffer imgBuf = ImageExt.toNv12Buffer(image);
@@ -297,6 +298,4 @@ public class ImageStreamReader {
       argbBuffer.close();
     }
   }
-
-  public native long getNativeAddress(ByteBuffer buffer);
 }

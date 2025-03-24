@@ -37,8 +37,10 @@ buildFeatures {
         minSdkVersion 21
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
-        ndk {
-            moduleName "camera_android"  // Specify the module name
+        externalNativeBuild {
+            cmake {
+                targets "camera_jni_util"
+            }
         }
     }
     lintOptions {

@@ -7,6 +7,9 @@ package io.flutter.plugins.camera;
 import android.app.Activity;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+
+import java.nio.ByteBuffer;
+
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.embedding.engine.plugins.activity.ActivityAware;
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding;
@@ -34,8 +37,10 @@ public final class CameraPlugin implements FlutterPlugin, ActivityAware {
   public CameraPlugin() {}
 
   static {
-    System.loadLibrary("camera_android");
+    System.loadLibrary("camera_jni_util");
   }
+
+  public static native long getNativeAddress(ByteBuffer buffer);
 
   @Override
   public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {

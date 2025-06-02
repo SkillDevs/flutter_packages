@@ -373,6 +373,12 @@ class AndroidCameraCameraX extends CameraPlatform {
     // resolutionPreset for camera UseCases.
     final ResolutionSelector? presetResolutionSelector =
         _getResolutionSelectorFromPreset(mediaSettings?.resolutionPreset);
+
+    // For frame streaming, use medium resolution, which is 480p
+    const ResolutionPreset analysisResolutionPreset = ResolutionPreset.medium;
+    final ResolutionSelector? presetResolutionSelectorAnalysis =
+        _getResolutionSelectorFromPreset(analysisResolutionPreset);
+
     final QualitySelector? presetQualitySelector =
         _getQualitySelectorFromPreset(mediaSettings?.resolutionPreset);
 
@@ -398,7 +404,7 @@ class AndroidCameraCameraX extends CameraPlatform {
     // Configure ImageAnalysis instance.
     // Defaults to YUV_420_888 image format.
     imageAnalysis = proxy.newImageAnalysis(
-      resolutionSelector: presetResolutionSelector,
+      resolutionSelector: presetResolutionSelectorAnalysis,
       /* use CameraX default target rotation */ targetRotation: null,
     );
 

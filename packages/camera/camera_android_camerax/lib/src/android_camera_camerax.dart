@@ -374,8 +374,8 @@ class AndroidCameraCameraX extends CameraPlatform {
     final ResolutionSelector? presetResolutionSelector =
         _getResolutionSelectorFromPreset(mediaSettings?.resolutionPreset);
 
-    // For frame streaming, use medium resolution, which is 480p
-    const ResolutionPreset analysisResolutionPreset = ResolutionPreset.medium;
+    // For frame streaming, use resolution equivalent to 720p
+    const ResolutionPreset analysisResolutionPreset = ResolutionPreset.high;
     final ResolutionSelector? presetResolutionSelectorAnalysis =
         _getResolutionSelectorFromPreset(analysisResolutionPreset);
 

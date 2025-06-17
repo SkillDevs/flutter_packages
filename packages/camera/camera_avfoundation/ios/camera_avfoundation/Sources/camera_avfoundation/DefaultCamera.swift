@@ -26,6 +26,58 @@ final class DefaultCamera: FLTCam, Camera {
   /// After some testing, 4 was determined to be the best maximuńm value.
   /// https://github.com/flutter/plugins/pull/4520#discussion_r766335637
   private var maxStreamingPendingFramesCount = 4
+  
+  // CUSTOM RESIZE CODE BEGIN
+  // Core Image context for scaling camera frames
+  private var ciContext: CIContext?
+
+  private func assertCropAndScaleValid(_ pixelBuffer: CVPixelBuffer, cropRect: CGRect, scaleSize: CGSize) {
+      let originalWidth = CGFloat(CVPixelBufferGetWidth(pixelBuffer))
+      let originalHeight = CGFloat(CVPixelBufferGetHeight(pixelBuffer))
+
+      assert(CGRect(origin: .zero, size: CGSize(width: originalWidth, height: originalHeight)).contains(cropRect))
+      assert(scaleSize.width > 0 && scaleSize.height > 0)
+  }
+
+  private func createCroppedPixelBuffer(_ pixelBuffer: CVPixelBuffer,
+                                       cropRect: CGRect,
+                                       scaleSize: CGSize,
+                                       context: CIContext) -> CVPixelBuffer? {
+
+      assertCropAndScaleValid(pixelBuffer, cropRect: cropRect, scaleSize: scaleSize)
+
+      var image = CIImage(cvImageBuffer: pixelBuffer)
+      image = image.cropped(to: cropRect)
+
+      let scaleX = scaleSize.width / image.extent.width
+      let scaleY = scaleSize.height / image.extent.height
+
+      image = image.transformed(by: CGAffineTransform(scaleX: scaleX, y: scaleY))
+
+      // Due to the way context.render works, we need to translate the image so the cropped section is at the origin
+      image = image.transformed(by: CGAffineTransform(translationX: -image.extent.origin.x,
+                                                     y: -image.extent.origin.y))
+
+      var output: CVPixelBuffer?
+      let status = CVPixelBufferCreate(nil,
+                                      Int(image.extent.width),
+                                      Int(image.extent.height),
+                                      CVPixelBufferGetPixelFormatType(pixelBuffer),
+                                      nil,
+                                      &output)
+
+      guard status == kCVReturnSuccess, let output = output else {
+          return nil
+      }
+
+      context.render(image, to: output)
+
+      return output
+  }
+
+
+  // CUSTOM RESIZE CODE END
+
 
   func captureOutput(
     _ output: AVCaptureOutput,
@@ -54,7 +106,37 @@ final class DefaultCamera: FLTCam, Camera {
       {
         streamingPendingFramesCount += 1
 
-        let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer)!
+        // CUSTOM RESIZE CODE BEGIN
+        let fullFramePixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer)!
+
+        let height = CVPixelBufferGetHeight(fullFramePixelBuffer)
+        let width = CVPixelBufferGetWidth(fullFramePixelBuffer)
+
+        //print("Width \(width) Height \(height)")
+
+        let videoRect = CGRect(x: 0, y: 0, width: CGFloat(width), height: CGFloat(height))
+        // Equivalent to the medium preset in Flutter: AVCaptureSessionPreset640x480 (480p)
+        let w: CGFloat = 640
+        let h: CGFloat = 480
+
+        // Handle mobile rotation to keep the same aspect ratio
+        let scaledSize = width > height ? CGSize(width: w, height: h) : CGSize(width: h, height: w)
+
+        // Create a rectangle that meets the output size's aspect ratio, centered in the original video frame
+        let centerCroppingRect = AVMakeRect(aspectRatio: scaledSize, insideRect: videoRect)
+
+        // Lazy initialization of the Core Image context
+        if ciContext == nil {
+            ciContext = CIContext()
+        }
+
+        let pixelBuffer = createCroppedPixelBuffer(fullFramePixelBuffer,
+                                      cropRect: centerCroppingRect,
+                                      scaleSize: scaledSize,
+                                      context: ciContext!)!
+        
+        // CUSTOM RESIZE CODE END
+
         // Must lock base address before accessing the pixel data
         CVPixelBufferLockBaseAddress(pixelBuffer, .readOnly)
 

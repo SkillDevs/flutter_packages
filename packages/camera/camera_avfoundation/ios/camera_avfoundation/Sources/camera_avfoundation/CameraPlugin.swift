@@ -303,9 +303,10 @@ extension CameraPlugin: FCPCameraApi {
     
     if ( !availableImageFormats.contains(avNativePixelFormat)) {
       let availableFormatsStr = availableImageFormats.map { convertIntegerToASCII(number: $0) }.joined(separator:", ")
+      let imageFormatStr = convertIntegerToASCII(number: avNativePixelFormat)
       completion(FlutterError(
         code: "unsupported_image_format",
-        message: "the specified image format \(imageFormat) is not supported by this camera. Supported formats are: \(availableFormatsStr)",
+        message: "The specified image format \(imageFormatStr) is not supported by this camera. Supported formats are: \(availableFormatsStr)",
         details: nil)
       )
       return;

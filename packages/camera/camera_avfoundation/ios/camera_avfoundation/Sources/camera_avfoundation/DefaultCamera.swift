@@ -1164,14 +1164,13 @@ final class DefaultCamera: FLTCam, Camera {
     }
 
     // Non-pixel buffer samples, such as audio samples, are ignored for streaming
-    guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+    guard let fullFramePixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
       return
     }
 
     streamingPendingFramesCount += 1
 
     // CUSTOM RESIZE CODE BEGIN
-    let fullFramePixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer)!
 
     let height = CVPixelBufferGetHeight(fullFramePixelBuffer)
     let width = CVPixelBufferGetWidth(fullFramePixelBuffer)
@@ -1194,10 +1193,12 @@ final class DefaultCamera: FLTCam, Camera {
         ciContext = CIContext()
     }
 
-    let pixelBuffer = createCroppedPixelBuffer(fullFramePixelBuffer,
+    guard let pixelBuffer = createCroppedPixelBuffer(fullFramePixelBuffer,
                                   cropRect: centerCroppingRect,
                                   scaleSize: scaledSize,
-                                  context: ciContext!)!
+                                  context: ciContext!) else {
+                                      return
+                                  }
     
     // CUSTOM RESIZE CODE END
 

@@ -160,7 +160,7 @@ extension CameraPlugin: FCPCameraApi {
         @unknown default:
           lensFacing = .external
         }
-
+        
         let cameraDescription = FCPPlatformCameraDescription.make(
           withName: device.uniqueID,
           lensDirection: lensFacing
@@ -284,8 +284,30 @@ extension CameraPlugin: FCPCameraApi {
     completion: @escaping (FlutterError?) -> Void
   ) {
     guard let camera = camera else { return }
+    var defCamera = (camera as! DefaultCamera)
+    let avNativePixelFormat = FCPGetPixelFormatForPigeonFormat(imageFormat)
+    let availableImageFormats = defCamera.avOutput!.availableVideoPixelFormatTypes
+    for format in availableImageFormats {
+      let formatDescription = try! CMVideoFormatDescription(videoCodecType: .init(rawValue: format), width: 0, height: 0)
+      print(formatDescription.mediaSubType.description)
+    }
+    
+    if ( !availableImageFormats.contains(avNativePixelFormat)) {
+      let availableFormatsStr = availableImageFormats.map { String($0) }.joined(separator:", ")
+      completion(FlutterError(
+        code: "unsupported_image_format",
+        message: "the specified image format \(imageFormat) is not supported by this camera",
+        details: "Supported formats are: \(availableFormatsStr)")
+      )
+      return;
+    }
+    
+    
+    camera.videoFormat = avNativePixelFormat
+    
 
-    camera.videoFormat = FCPGetPixelFormatForPigeonFormat(imageFormat)
+
+    //FCPGetPixelFormatForPigeonFormat(imageFormat)
 
     camera.onFrameAvailable = { [weak self] in
       guard let camera = self?.camera else { return }

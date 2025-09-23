@@ -12,12 +12,14 @@ import CoreMotion
 final class DefaultCamera: FLTCam, Camera {
   var dartAPI: FCPCameraEventApi?
   var onFrameAvailable: (() -> Void)?
+  var avOutput: AVCaptureVideoDataOutput? = nil
 
   var videoFormat: FourCharCode = kCVPixelFormatType_32BGRA {
     didSet {
       captureVideoOutput.videoSettings = [
         kCVPixelBufferPixelFormatTypeKey as String: videoFormat
       ]
+      
     }
   }
 
@@ -230,6 +232,7 @@ final class DefaultCamera: FLTCam, Camera {
       videoFormat: videoFormat,
       captureDeviceInputFactory: configuration.captureDeviceInputFactory)
 
+    avOutput = captureVideoOutput.avOutput
     captureVideoOutput.setSampleBufferDelegate(self, queue: captureSessionQueue)
 
     videoCaptureSession.addInputWithNoConnections(captureVideoInput)

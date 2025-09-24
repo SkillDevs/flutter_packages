@@ -153,7 +153,7 @@ final class DefaultCamera: FLTCam, Camera {
       return output
   }
 
-  private func getLandscapeAspectRatio(sideA: CGFloat, sideB: CGFloat) -> CGFloat {
+  private func getLandscapeAspectRatio(_ sideA: CGFloat, _ sideB: CGFloat) -> CGFloat {
     if sideA >= sideB {
       return sideA / sideB
     } else {
@@ -161,7 +161,7 @@ final class DefaultCamera: FLTCam, Camera {
     }
   }
 
-  private func almostEqual(_ a: Float, _ b: Float, epsilon: Float = 1e-6) -> Bool {
+  private func almostEqual(_ a: CGFloat, _ b: CGFloat, epsilon: CGFloat = 1e-6) -> Bool {
     return abs(a - b) < epsilon
   }
 

@@ -1,3 +1,16 @@
+## 0.2.8
+
+* Adds support for accessing data for an ad. See `AdEvent.ad`.
+
+## 0.2.7
+
+* Adds support to retrieve content time offsets at which ad breaks are scheduled. See
+  `AdsManager.adCuePoints`
+
+## 0.2.6+7
+
+* Updates Android `PlatformAdDisplayContainer` implementation to support preloading ads.
+
 ## 0.2.6+6
 
 * Bumps com.android.tools.build:gradle to 8.12.1 and kotlin_version to 2.2.10.

@@ -12,12 +12,14 @@ import CoreMotion
 final class DefaultCamera: FLTCam, Camera {
   var dartAPI: FCPCameraEventApi?
   var onFrameAvailable: (() -> Void)?
+  var avOutput: AVCaptureVideoDataOutput? = nil
 
   var videoFormat: FourCharCode = kCVPixelFormatType_32BGRA {
     didSet {
       captureVideoOutput.videoSettings = [
         kCVPixelBufferPixelFormatTypeKey as String: videoFormat
       ]
+      
     }
   }
 
@@ -151,6 +153,17 @@ final class DefaultCamera: FLTCam, Camera {
       return output
   }
 
+  private func getLandscapeAspectRatio(_ sideA: CGFloat, _ sideB: CGFloat) -> CGFloat {
+    if sideA >= sideB {
+      return sideA / sideB
+    } else {
+      return sideB / sideA
+    }
+  }
+
+  private func almostEqual(_ a: CGFloat, _ b: CGFloat, epsilon: CGFloat = 1e-6) -> Bool {
+    return abs(a - b) < epsilon
+  }
 
   // CUSTOM RESIZE CODE END
 
@@ -230,6 +243,7 @@ final class DefaultCamera: FLTCam, Camera {
       videoFormat: videoFormat,
       captureDeviceInputFactory: configuration.captureDeviceInputFactory)
 
+    avOutput = captureVideoOutput.avOutput
     captureVideoOutput.setSampleBufferDelegate(self, queue: captureSessionQueue)
 
     videoCaptureSession.addInputWithNoConnections(captureVideoInput)
@@ -1178,9 +1192,21 @@ final class DefaultCamera: FLTCam, Camera {
     //print("Width \(width) Height \(height)")
 
     let videoRect = CGRect(x: 0, y: 0, width: CGFloat(width), height: CGFloat(height))
-    // Equivalent to the medium preset in Flutter: AVCaptureSessionPreset640x480 (480p)
-    let w: CGFloat = 640
-    let h: CGFloat = 480
+
+    // Aspect ratio where the largest side is horizontal
+    let landsScapeAspectRatio = getLandscapeAspectRatio(CGFloat(width), CGFloat(height))
+
+    let w: CGFloat
+    let h: CGFloat
+    if (almostEqual(landsScapeAspectRatio, 16.0/9.0)) {
+      // Equivalent to the high preset in Flutter: AVCaptureSessionPreset1280x720 (720p) in 16/9 aspect ratio
+      w = 1280
+      h = 720
+    } else {
+      // Equivalent to the medium preset in Flutter: AVCaptureSessionPreset640x480 (480p)
+      w = 640
+      h = 480
+    }
 
     // Handle mobile rotation to keep the same aspect ratio
     let scaledSize = width > height ? CGSize(width: w, height: h) : CGSize(width: h, height: w)

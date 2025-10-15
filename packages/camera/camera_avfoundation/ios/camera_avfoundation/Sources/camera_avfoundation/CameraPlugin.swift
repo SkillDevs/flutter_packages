@@ -160,7 +160,7 @@ extension CameraPlugin: FCPCameraApi {
         @unknown default:
           lensFacing = .external
         }
-
+        
         let cameraDescription = FCPPlatformCameraDescription.make(
           withName: device.uniqueID,
           lensDirection: lensFacing
@@ -275,6 +275,15 @@ extension CameraPlugin: FCPCameraApi {
         completion: completion)
     }
   }
+  
+  private func convertIntegerToASCII(number: UInt32) -> String {
+    let ostype = number.bigEndian // Assuming big-endian byte order
+    let bytes = withUnsafeBytes(of: ostype) {
+                  Array($0)
+              }
+    let ostypeString = String(bytes: bytes, encoding: .ascii)
+    return ostypeString ?? "unknown"
+  }
 
   // This must be called on captureSessionQueue. It is extracted from initializeCamera to make it
   // easier to reason about strong/weak self pointers.
@@ -284,8 +293,29 @@ extension CameraPlugin: FCPCameraApi {
     completion: @escaping (FlutterError?) -> Void
   ) {
     guard let camera = camera else { return }
+    var defCamera = (camera as! DefaultCamera)
+    let avNativePixelFormat = FCPGetPixelFormatForPigeonFormat(imageFormat)
+    let availableImageFormats = defCamera.avOutput!.availableVideoPixelFormatTypes
+    for format in availableImageFormats {
+      let strFormat = convertIntegerToASCII(number:format)
+      print("Format \(strFormat)")
+    }
+    
+    if ( !availableImageFormats.contains(avNativePixelFormat)) {
+      let availableFormatsStr = availableImageFormats.map { convertIntegerToASCII(number: $0) }.joined(separator:", ")
+      let imageFormatStr = convertIntegerToASCII(number: avNativePixelFormat)
+      completion(FlutterError(
+        code: "unsupported_image_format",
+        message: "The specified image format \(imageFormatStr) is not supported by this camera. Supported formats are: \(availableFormatsStr)",
+        details: nil)
+      )
+      return;
+    }
+    
+    
+    camera.videoFormat = avNativePixelFormat
+    
 
-    camera.videoFormat = FCPGetPixelFormatForPigeonFormat(imageFormat)
 
     camera.onFrameAvailable = { [weak self] in
       guard let camera = self?.camera else { return }

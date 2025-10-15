@@ -312,10 +312,10 @@ extension CameraPlugin: FCPCameraApi {
     var defCamera = (camera as! DefaultCamera)
     let avNativePixelFormat = FCPGetPixelFormatForPigeonFormat(imageFormat)
     let availableImageFormats = defCamera.avOutput!.availableVideoPixelFormatTypes
-    for format in availableImageFormats {
-      let strFormat = convertIntegerToASCII(number:format)
-      print("Format \(strFormat)")
-    }
+    // for format in availableImageFormats {
+    //   let strFormat = convertIntegerToASCII(number:format)
+    //   print("Format \(strFormat)")
+    // }
     
     if ( !availableImageFormats.contains(avNativePixelFormat)) {
       let availableFormatsStr = availableImageFormats.map { convertIntegerToASCII(number: $0) }.joined(separator:", ")

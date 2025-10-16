@@ -498,7 +498,13 @@ class AndroidCameraCameraX extends CameraPlatform {
     // instead of here.
     camera = await processCameraProvider!.bindToLifecycle(
       cameraSelector!,
-      <UseCase>[preview!, imageCapture!, imageAnalysis!],
+      <UseCase>[
+        preview!,
+        // CUSTOM: Don't bind ImageCapture. We don't use it, and binding the 3 ones can cause some
+        // devices to not be able to handle high resolution preview and mid resolution analysis.
+        //imageCapture!,
+        imageAnalysis!,
+      ],
     );
     await _updateCameraInfoAndLiveCameraState(_flutterSurfaceTextureId);
     previewInitiallyBound = true;

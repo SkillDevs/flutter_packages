@@ -1196,7 +1196,7 @@ class AndroidCameraCameraX extends CameraPlatform {
 
     videoOutputPath = await systemServicesManager.getTempFilePath(
       videoPrefix,
-      '.temp',
+      '.mp4',
     );
     pendingRecording = await recorder!.prepareRecording(videoOutputPath!);
 

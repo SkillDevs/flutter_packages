@@ -1,3 +1,11 @@
+## 3.23.5
+
+* Removes internal native library Dart proxy.
+
+## 3.23.4
+
+* Replaces use of deprecated Color.value.
+
 ## 3.23.3
 
 * Updates to Pigeon 26.

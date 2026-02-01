@@ -2,7 +2,7 @@ name: "Creates Batch Release for a Package"
 
 on:
   repository_dispatch:
-    types: [batch_release_pr]
+    types: [batch-release-pr]
 
 jobs:
   create_release_pr:
@@ -11,7 +11,9 @@ jobs:
       BRANCH_NAME: ${{ github.event.client_payload.package }}-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - name: "Install Flutter"
+        uses: ./.github/workflows/internals/install_flutter
       - name: Set up tools
         run: dart pub get
         working-directory: ${{ github.workspace }}/script/tool
@@ -25,13 +27,16 @@ jobs:
           dart ./script/tool/lib/src/main.dart branch-for-batch-release --packages=${{ github.event.client_payload.package }} --branch=${{ env.BRANCH_NAME }} --remote=origin
       - name: Check if branch was created
         id: check-branch-exists
-        uses: GuillaumeFalourd/branch-exists@v1.1
-        with:
-          branch: ${{ env.BRANCH_NAME }}
+        run: |
+          if git show-ref --verify --quiet refs/heads/${{ env.BRANCH_NAME }}; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Create batch release PR
         if: steps.check-branch-exists.outputs.exists == 'true'
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "[${{ github.event.client_payload.package }}] Batch release"

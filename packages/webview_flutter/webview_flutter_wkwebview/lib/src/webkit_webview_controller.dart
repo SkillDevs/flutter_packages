@@ -82,6 +82,7 @@ class WebKitWebViewControllerCreationParams
     },
     this.allowsInlineMediaPlayback = false,
     this.limitsNavigationsToAppBoundDomains = false,
+    this.javaScriptCanOpenWindowsAutomatically,
   }) {
     _configuration = WKWebViewConfiguration();
 
@@ -122,10 +123,13 @@ class WebKitWebViewControllerCreationParams
         },
     bool allowsInlineMediaPlayback = false,
     bool limitsNavigationsToAppBoundDomains = false,
+    bool? javaScriptCanOpenWindowsAutomatically,
   }) : this(
          mediaTypesRequiringUserAction: mediaTypesRequiringUserAction,
          allowsInlineMediaPlayback: allowsInlineMediaPlayback,
          limitsNavigationsToAppBoundDomains: limitsNavigationsToAppBoundDomains,
+         javaScriptCanOpenWindowsAutomatically:
+             javaScriptCanOpenWindowsAutomatically,
        );
 
   late final WKWebViewConfiguration _configuration;
@@ -147,6 +151,12 @@ class WebKitWebViewControllerCreationParams
   /// (Only available for iOS > 14.0)
   /// Defaults to false.
   final bool limitsNavigationsToAppBoundDomains;
+
+  /// Whether JavaScript can open windows without user interaction.
+  ///
+  /// When `null`, the platform's native default is used
+  /// (`false` on iOS, `true` on macOS).
+  final bool? javaScriptCanOpenWindowsAutomatically;
 }
 
 /// An implementation of [PlatformWebViewController] with the WebKit api.
@@ -644,6 +654,16 @@ class WebKitWebViewController extends PlatformWebViewController {
 
   @override
   Future<void> setJavaScriptMode(JavaScriptMode javaScriptMode) async {
+    final bool? javaScriptCanOpenWindowsAutomatically =
+        _webKitParams.javaScriptCanOpenWindowsAutomatically;
+    if (javaScriptCanOpenWindowsAutomatically != null) {
+      final WKPreferences preferences = await _webView.configuration
+          .getPreferences();
+      await preferences.setJavaScriptCanOpenWindowsAutomatically(
+        javaScriptCanOpenWindowsAutomatically,
+      );
+    }
+
     // Attempt to set the value that requires iOS 14+.
     try {
       final WKWebpagePreferences webpagePreferences = await _webView
@@ -1234,17 +1254,22 @@ class WebKitNavigationDelegate extends PlatformNavigationDelegate {
           );
         }
       },
-      didFailProvisionalNavigation: (_, __, NSError error) {
+      didFailProvisionalNavigation: (_, __, NSError error) async {
+        var url =
+            error.userInfo[NSErrorUserInfoKey.NSURLErrorFailingURLStringError]
+                as String?;
+
+        // On iOS 26+, the error is stored with `NSURLErrorFailingURLErrorKey`.
+        if (url == null) {
+          final nativeURL =
+              error.userInfo[NSErrorUserInfoKey.NSURLErrorFailingURLErrorKey]
+                  as URL?;
+          url = await nativeURL?.getAbsoluteString();
+        }
+
         if (weakThis.target?._onWebResourceError != null) {
           weakThis.target!._onWebResourceError!(
-            WebKitWebResourceError._(
-              error,
-              isForMainFrame: true,
-              url:
-                  error.userInfo[NSErrorUserInfoKey
-                          .NSURLErrorFailingURLStringError]
-                      as String?,
-            ),
+            WebKitWebResourceError._(error, isForMainFrame: true, url: url),
           );
         }
       },

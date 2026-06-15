@@ -1,3 +1,8 @@
+## 0.3.0+15
+
+* Migrates to Built-in Kotlin to support AGP 9.
+* Updates minimum supported SDK version to Flutter 3.44/Dart 3.12.
+
 ## 0.3.0+14
 
 * Updates README to use Kotlin gradle rather than Groovy.

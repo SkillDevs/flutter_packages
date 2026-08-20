@@ -1,3 +1,12 @@
+## 0.5.2+9
+
+* Fixes a crash when a selected file cannot be copied to a readable location (for
+  example, on a `SecurityException`).
+
+## 0.5.2+8
+
+* Bumps the androidx group across 10 directories with 1 update.
+
 ## 0.5.2+7
 
 * Migrates to Built-in Kotlin to support AGP 9.

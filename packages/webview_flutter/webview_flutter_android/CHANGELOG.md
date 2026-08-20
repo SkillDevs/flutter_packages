@@ -1,3 +1,14 @@
+## 4.14.0
+* Adds support for configuring Web Authentication in `AndroidWebViewController` with `setWebAuthenticationSupport` to enable Passkey and other related Authentication.
+
+## 4.13.0
+
+* Adds new method for accessing a native `WebView` from a `FlutterPluginBinding`.
+
+## 4.12.2
+
+* Bumps the androidx group across 10 directories with 1 update.
+
 ## 4.12.1
 
 * Migrates to Built-in Kotlin to support AGP 9.

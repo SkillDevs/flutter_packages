@@ -85,6 +85,22 @@ extension InAppPurchasePlugin: InAppPurchase2API {
           }
         }
 
+        for await verificationResult in Transaction.unfinished {
+          switch verificationResult {
+          case .verified(let transaction):
+            if transaction.productID == id {
+              let error = PigeonError(
+                code: "storekit_duplicate_product_object",
+                message:
+                  "There is a pending transaction for the same product identifier. Please either wait for it to be finished or finish it manually using `completePurchase` to avoid edge cases.",
+                details: id)
+              return completion(.failure(error))
+            }
+          case .unverified:
+            break
+          }
+        }
+
         let result = try await product.purchase(options: purchaseOptions)
 
         switch result {
@@ -263,15 +279,16 @@ extension InAppPurchasePlugin: InAppPurchase2API {
     Task { [weak self] in
       guard let self = self else { return }
       do {
+        var restoredTransactions: [SK2TransactionMessage] = []
         var unverifiedPurchases: [UInt64: (receipt: String, error: Error?)] = [:]
         for await completedPurchase in Transaction.currentEntitlements {
           switch completedPurchase {
           case .verified(let purchase):
-            self.sendTransactionUpdate(
-              productId: purchase.productID,
-              transaction: purchase,
-              receipt: "\(completedPurchase.jwsRepresentation)",
-              status: .restored
+            restoredTransactions.append(
+              purchase.convertToPigeon(
+                receipt: "\(completedPurchase.jwsRepresentation)",
+                status: .restored
+              )
             )
           case .unverified(let failedPurchase, let error):
             unverifiedPurchases[failedPurchase.id] = (
@@ -279,6 +296,7 @@ extension InAppPurchasePlugin: InAppPurchase2API {
             )
           }
         }
+        self.sendTransactionUpdates(restoredTransactions)
         if !unverifiedPurchases.isEmpty {
           completion(
             .failure(
@@ -287,6 +305,7 @@ extension InAppPurchasePlugin: InAppPurchase2API {
                 message:
                   "This purchase could not be restored.",
                 details: unverifiedPurchases)))
+          return
         }
         completion(.success(Void()))
       }
@@ -457,8 +476,12 @@ extension InAppPurchasePlugin: InAppPurchase2API {
       )
     }
 
+    sendTransactionUpdates([transactionMessage])
+  }
+
+  private func sendTransactionUpdates(_ transactionMessages: [SK2TransactionMessage]) {
     Task { @MainActor in
-      self.transactionCallbackAPI?.onTransactionsUpdated(newTransactions: [transactionMessage]) {
+      self.transactionCallbackAPI?.onTransactionsUpdated(newTransactions: transactionMessages) {
         result in
         switch result {
         case .success: break

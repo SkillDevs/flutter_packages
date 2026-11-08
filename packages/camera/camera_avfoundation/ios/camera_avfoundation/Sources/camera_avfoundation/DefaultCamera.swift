@@ -137,7 +137,8 @@ final class DefaultCamera: NSObject, Camera {
   private func createCroppedPixelBuffer(_ pixelBuffer: CVPixelBuffer,
                                        cropRect: CGRect,
                                        scaleSize: CGSize,
-                                       context: CIContext) -> CVPixelBuffer? {
+                                       context: CIContext,
+                                       outputPixelFormat: OSType? = nil) -> CVPixelBuffer? {
 
       assertCropAndScaleValid(pixelBuffer, cropRect: cropRect, scaleSize: scaleSize)
 
@@ -154,11 +155,13 @@ final class DefaultCamera: NSObject, Camera {
                                                      y: -image.extent.origin.y))
 
       var output: CVPixelBuffer?
+      // IOSurface-backed, so the GPU renders straight into it
+      let attributes = [kCVPixelBufferIOSurfacePropertiesKey as String: [String: Any]()] as CFDictionary
       let status = CVPixelBufferCreate(nil,
                                       Int(image.extent.width),
                                       Int(image.extent.height),
-                                      CVPixelBufferGetPixelFormatType(pixelBuffer),
-                                      nil,
+                                      outputPixelFormat ?? CVPixelBufferGetPixelFormatType(pixelBuffer),
+                                      attributes,
                                       &output)
 
       guard status == kCVReturnSuccess, let output = output else {
@@ -180,6 +183,51 @@ final class DefaultCamera: NSObject, Camera {
 
   private func almostEqual(_ a: CGFloat, _ b: CGFloat, epsilon: CGFloat = 1e-6) -> Bool {
     return abs(a - b) < epsilon
+  }
+
+  /// The stream's frame: center-cropped and scaled on the GPU to 720p (16:9) or 480p, in the camera's pixel format or
+  /// [outputPixelFormat]
+  private func scaledStreamPixelBuffer(_ fullFramePixelBuffer: CVPixelBuffer, outputPixelFormat: OSType? = nil)
+    -> CVPixelBuffer?
+  {
+    let height = CVPixelBufferGetHeight(fullFramePixelBuffer)
+    let width = CVPixelBufferGetWidth(fullFramePixelBuffer)
+
+    //print("Width \(width) Height \(height)")
+
+    let videoRect = CGRect(x: 0, y: 0, width: CGFloat(width), height: CGFloat(height))
+
+    // Aspect ratio where the largest side is horizontal
+    let landsScapeAspectRatio = getLandscapeAspectRatio(CGFloat(width), CGFloat(height))
+
+    let w: CGFloat
+    let h: CGFloat
+    if (almostEqual(landsScapeAspectRatio, 16.0/9.0)) {
+      // Equivalent to the high preset in Flutter: AVCaptureSessionPreset1280x720 (720p) in 16/9 aspect ratio
+      w = 1280
+      h = 720
+    } else {
+      // Equivalent to the medium preset in Flutter: AVCaptureSessionPreset640x480 (480p)
+      w = 640
+      h = 480
+    }
+
+    // Handle mobile rotation to keep the same aspect ratio
+    let scaledSize = width > height ? CGSize(width: w, height: h) : CGSize(width: h, height: w)
+
+    // Create a rectangle that meets the output size's aspect ratio, centered in the original video frame
+    let centerCroppingRect = AVMakeRect(aspectRatio: scaledSize, insideRect: videoRect)
+
+    // Lazy initialization of the Core Image context
+    if ciContext == nil {
+        ciContext = CIContext()
+    }
+
+    return createCroppedPixelBuffer(fullFramePixelBuffer,
+                                    cropRect: centerCroppingRect,
+                                    scaleSize: scaledSize,
+                                    context: ciContext!,
+                                    outputPixelFormat: outputPixelFormat)
   }
 
   // CUSTOM RESIZE CODE END
@@ -1395,6 +1443,22 @@ final class DefaultCamera: NSObject, Camera {
   }
 
   private func handleSampleBufferStreaming(_ sampleBuffer: CMSampleBuffer) {
+    // SkillDevs fork: an app-provided consumer takes the frames natively (ExternalImageStream). Only the frames it
+    // wants are resized, and the resize renders BGRA: Core Image converts to RGB to scale anyway.
+    if let external = ExternalImageStream.consumer {
+      guard isStreamingImages,
+        let fullFramePixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer),
+        external.wantsFrame(),
+        let pixelBuffer = scaledStreamPixelBuffer(
+          fullFramePixelBuffer, outputPixelFormat: kCVPixelFormatType_32BGRA)
+      else {
+        return
+      }
+      let time = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+      external.consume(pixelBuffer, time.isValid ? Int64(time.seconds * 1_000_000_000) : 0)
+      return
+    }
+
     guard isStreamingImages,
       let eventSink = imageStreamHandler?.eventSink,
       streamingPendingFramesCount < maxStreamingPendingFramesCount
@@ -1410,47 +1474,9 @@ final class DefaultCamera: NSObject, Camera {
     streamingPendingFramesCount += 1
 
     // CUSTOM RESIZE CODE BEGIN
-
-    let height = CVPixelBufferGetHeight(fullFramePixelBuffer)
-    let width = CVPixelBufferGetWidth(fullFramePixelBuffer)
-
-    //print("Width \(width) Height \(height)")
-
-    let videoRect = CGRect(x: 0, y: 0, width: CGFloat(width), height: CGFloat(height))
-
-    // Aspect ratio where the largest side is horizontal
-    let landsScapeAspectRatio = getLandscapeAspectRatio(CGFloat(width), CGFloat(height))
-
-    let w: CGFloat
-    let h: CGFloat
-    if (almostEqual(landsScapeAspectRatio, 16.0/9.0)) {
-      // Equivalent to the high preset in Flutter: AVCaptureSessionPreset1280x720 (720p) in 16/9 aspect ratio
-      w = 1280
-      h = 720
-    } else {
-      // Equivalent to the medium preset in Flutter: AVCaptureSessionPreset640x480 (480p)
-      w = 640
-      h = 480
+    guard let pixelBuffer = scaledStreamPixelBuffer(fullFramePixelBuffer) else {
+      return
     }
-
-    // Handle mobile rotation to keep the same aspect ratio
-    let scaledSize = width > height ? CGSize(width: w, height: h) : CGSize(width: h, height: w)
-
-    // Create a rectangle that meets the output size's aspect ratio, centered in the original video frame
-    let centerCroppingRect = AVMakeRect(aspectRatio: scaledSize, insideRect: videoRect)
-
-    // Lazy initialization of the Core Image context
-    if ciContext == nil {
-        ciContext = CIContext()
-    }
-
-    guard let pixelBuffer = createCroppedPixelBuffer(fullFramePixelBuffer,
-                                  cropRect: centerCroppingRect,
-                                  scaleSize: scaledSize,
-                                  context: ciContext!) else {
-                                      return
-                                  }
-    
     // CUSTOM RESIZE CODE END
 
 

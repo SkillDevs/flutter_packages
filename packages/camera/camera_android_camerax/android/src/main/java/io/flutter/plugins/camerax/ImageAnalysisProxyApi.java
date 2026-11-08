@@ -66,6 +66,12 @@ class ImageAnalysisProxyApi extends PigeonApiImageAnalysis {
 
   @Override
   public void setAnalyzer(ImageAnalysis pigeonInstance, @NonNull ImageAnalysis.Analyzer analyzer) {
+    // SkillDevs fork: an app-provided analyzer takes the frames natively, off the main thread
+    final ImageAnalysis.Analyzer external = ExternalImageAnalyzer.get();
+    if (external != null) {
+      pigeonInstance.setAnalyzer(ExternalImageAnalyzer.executor(), external);
+      return;
+    }
     getPigeonRegistrar()
         .getInstanceManager()
         .setClearFinalizedWeakReferencesInterval(

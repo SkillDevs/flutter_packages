@@ -391,8 +391,8 @@ class AndroidCameraCameraX extends CameraPlatform {
     // resolutionPreset for camera UseCases.
     _presetResolutionSelector = _getResolutionSelectorFromPreset(mediaSettings?.resolutionPreset);
 
-    // For frame streaming, use resolution equivalent to 720p
-    const ResolutionPreset analysisResolutionPreset = ResolutionPreset.high;
+    // For frame streaming, use resolution equivalent to 1080p (the card's collector number is readable)
+    const ResolutionPreset analysisResolutionPreset = ResolutionPreset.veryHigh;
     _presetResolutionSelectorAnalysis = _getResolutionSelectorFromPreset(
       analysisResolutionPreset,
     );

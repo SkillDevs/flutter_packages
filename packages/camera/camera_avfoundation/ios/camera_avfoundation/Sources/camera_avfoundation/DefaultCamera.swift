@@ -346,6 +346,9 @@ final class DefaultCamera: NSObject, Camera {
       try setCaptureSessionPreset(mediaSettings.resolutionPreset)
     }
 
+    // SkillDevs fork
+    applyCloseUpZoom()
+
     updateOrientation()
 
     // Handle video and audio interruptions and errors. Interruption can happen for example by
@@ -364,6 +367,51 @@ final class DefaultCamera: NSObject, Camera {
         selector: #selector(captureSessionRuntimeError),
         name: AVCaptureSession.runtimeErrorNotification,
         object: session)
+    }
+  }
+
+  // SkillDevs fork: card scanning close-up zoom.
+  // The main camera of recent Pro iPhones can't focus closer than about 20 cm, but a card fills a good part of the
+  // frame at about 15 cm, so that's where people hold it, and it stays blurry. When the lens can't focus at the
+  // distance where a card fills `closeUpCardShare` of the frame's short side, zoom in so that it fills that share at
+  // the minimum focus distance instead: people then hold the card where it's sharp. Lenses that focus close enough
+  // keep 1x. The zoom crops the (4K) frame, so the preview and the 720p stream stay sharp.
+  private static let closeUpCardWidthMm = 63.0
+  private static let closeUpCardShare = 0.5
+  private static let closeUpMaxZoom: CGFloat = 2.0
+
+  private func applyCloseUpZoom() {
+    guard #available(iOS 15.0, *) else { return }
+    let device = captureDevice.avDevice
+    let minimumFocusMm = Double(device.minimumFocusDistance)  // -1 when unknown
+    let format = device.activeFormat
+    let dimensions = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+    guard minimumFocusMm > 0, format.videoFieldOfView > 0, dimensions.width > 0, dimensions.height > 0 else {
+      return
+    }
+
+    // videoFieldOfView is across the long side; the card's width goes across the short side (portrait scanning)
+    let halfLongSide = Double(format.videoFieldOfView) * .pi / 360
+    let tanHalfShortSide = tan(halfLongSide) * Double(min(dimensions.width, dimensions.height))
+      / Double(max(dimensions.width, dimensions.height))
+    let cardFillsShareAtMm =
+      DefaultCamera.closeUpCardWidthMm / DefaultCamera.closeUpCardShare / 2 / tanHalfShortSide
+
+    do {
+      try device.lockForConfiguration()
+    } catch {
+      return
+    }
+    defer { device.unlockForConfiguration() }
+    if minimumFocusMm > cardFillsShareAtMm {
+      let zoom = min(
+        CGFloat(minimumFocusMm / cardFillsShareAtMm), DefaultCamera.closeUpMaxZoom,
+        device.maxAvailableVideoZoomFactor)
+      device.videoZoomFactor = max(zoom, device.minAvailableVideoZoomFactor)
+    }
+    // Cards are always close: search near distances first, so focus locks faster
+    if device.isAutoFocusRangeRestrictionSupported {
+      device.autoFocusRangeRestriction = .near
     }
   }
 

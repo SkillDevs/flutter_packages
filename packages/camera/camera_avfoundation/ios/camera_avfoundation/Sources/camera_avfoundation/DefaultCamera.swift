@@ -185,7 +185,7 @@ final class DefaultCamera: NSObject, Camera {
     return abs(a - b) < epsilon
   }
 
-  /// The stream's frame: center-cropped and scaled on the GPU to 720p (16:9) or 480p, in the camera's pixel format or
+  /// The stream's frame: center-cropped and scaled on the GPU to 1080p (16:9, or 1440x1080 in 4:3), in the camera's pixel format or
   /// [outputPixelFormat]
   private func scaledStreamPixelBuffer(_ fullFramePixelBuffer: CVPixelBuffer, outputPixelFormat: OSType? = nil)
     -> CVPixelBuffer?
@@ -203,13 +203,13 @@ final class DefaultCamera: NSObject, Camera {
     let w: CGFloat
     let h: CGFloat
     if (almostEqual(landsScapeAspectRatio, 16.0/9.0)) {
-      // Equivalent to the high preset in Flutter: AVCaptureSessionPreset1280x720 (720p) in 16/9 aspect ratio
-      w = 1280
-      h = 720
+      // Equivalent to the veryHigh preset in Flutter: AVCaptureSessionPreset1920x1080 (1080p) in 16/9 aspect ratio
+      w = 1920
+      h = 1080
     } else {
-      // Equivalent to the medium preset in Flutter: AVCaptureSessionPreset640x480 (480p)
-      w = 640
-      h = 480
+      // 4:3 at the same height
+      w = 1440
+      h = 1080
     }
 
     // Handle mobile rotation to keep the same aspect ratio
@@ -375,7 +375,7 @@ final class DefaultCamera: NSObject, Camera {
   // frame at about 15 cm, so that's where people hold it, and it stays blurry. When the lens can't focus at the
   // distance where a card fills `closeUpCardShare` of the frame's short side, zoom in so that it fills that share at
   // the minimum focus distance instead: people then hold the card where it's sharp. Lenses that focus close enough
-  // keep 1x. The zoom crops the (4K) frame, so the preview and the 720p stream stay sharp.
+  // keep 1x. The zoom crops the (4K) frame, so the preview and the 1080p stream stay sharp.
   private static let closeUpCardWidthMm = 63.0
   private static let closeUpCardShare = 0.5
   private static let closeUpMaxZoom: CGFloat = 2.0
